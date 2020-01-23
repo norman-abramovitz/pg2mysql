@@ -9,7 +9,7 @@ build: test
 	go build -o pg2mysql cmd/pg2mysql/main.go
 
 test:
-	go test ./...
+	go test
 
 clean:
 	rm pg2mysql_linux
