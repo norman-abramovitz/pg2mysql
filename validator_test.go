@@ -3,7 +3,7 @@ package pg2mysql_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-cf/pg2mysql"
+	"github.com/tompiscitell/pg2mysql"
 )
 
 var _ = Describe("Validator", func() {
