@@ -14,6 +14,7 @@ func NewMySQLDB(
 	password string,
 	host string,
 	port int,
+	roundTime bool,
 ) DB {
 	config := mysql.Config{
 		User:            username,
@@ -29,15 +30,17 @@ func NewMySQLDB(
 	}
 
 	return &mySQLDB{
-		dsn:    config.FormatDSN(),
-		dbName: database,
+		dsn:       config.FormatDSN(),
+		dbName:    database,
+		roundTime: roundTime,
 	}
 }
 
 type mySQLDB struct {
-	dsn    string
-	db     *sql.DB
-	dbName string
+	dsn       string
+	db        *sql.DB
+	dbName    string
+	roundTime bool
 }
 
 func (m *mySQLDB) Open() error {
@@ -90,5 +93,9 @@ func (m *mySQLDB) DisableConstraints() error {
 }
 
 func (m *mySQLDB) NormalizeTime(t time.Time) time.Time {
+	if m.roundTime {
+		return t.Round(time.Second)
+	}
+
 	return t.Truncate(time.Second)
 }

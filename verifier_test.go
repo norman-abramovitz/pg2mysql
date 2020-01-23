@@ -25,6 +25,7 @@ var _ = Describe("Verifier", func() {
 			"",
 			"127.0.0.1",
 			3306,
+			true,
 		)
 
 		err := mysql.Open()
@@ -99,7 +100,49 @@ var _ = Describe("Verifier", func() {
 				id := 3
 				name := "some-name"
 				ciname := "some-ci-name"
-				created_at := time.Now().UTC()
+				created_at := time.Now().UTC().Truncate(time.Second)
+				truthiness := true
+
+				stmt := "INSERT INTO table_with_id (id, name, ci_name, created_at, truthiness) VALUES ($1, $2, $3, $4, $5);"
+				result, err := pgRunner.DB().Exec(stmt, id, name, ciname, created_at, truthiness)
+				Expect(err).NotTo(HaveOccurred())
+				rowsAffected, err := result.RowsAffected()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rowsAffected).To(BeNumerically("==", 1))
+
+				stmt = "INSERT INTO table_with_id (id, name, ci_name, created_at, truthiness) VALUES (?, ?, ?, ?, ?);"
+				result, err = mysqlRunner.DB().Exec(stmt, id, name, ciname, created_at, truthiness)
+				Expect(err).NotTo(HaveOccurred())
+				rowsAffected, err = result.RowsAffected()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rowsAffected).To(BeNumerically("==", 1))
+			})
+
+			It("notifies the watcher", func() {
+				err := verifier.Verify()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(watcher.TableVerificationDidFinishCallCount()).To(Equal(3))
+
+				expected := map[string]int64{
+					"table_with_id":        0,
+					"table_with_string_id": 0,
+					"table_without_id":     0,
+				}
+
+				for i := 0; i < len(expected); i++ {
+					tableName, missingRows, missingIDs := watcher.TableVerificationDidFinishArgsForCall(i)
+					Expect(missingRows).To(Equal(expected[tableName]), fmt.Sprintf("unexpected result for %s", tableName))
+					Expect(missingIDs).To(BeNil())
+				}
+			})
+		})
+		Context("when a timestamp that may get rounded by mysql", func() {
+			BeforeEach(func() {
+				msBump, _ := time.ParseDuration("700ms")
+				id := 3
+				name := "some-name"
+				ciname := "some-ci-name"
+				created_at := time.Now().UTC().Truncate(time.Second).Add(msBump)
 				truthiness := true
 
 				stmt := "INSERT INTO table_with_id (id, name, ci_name, created_at, truthiness) VALUES ($1, $2, $3, $4, $5);"

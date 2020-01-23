@@ -26,6 +26,7 @@ var _ = Describe("Migrator", func() {
 			"",
 			"127.0.0.1",
 			3306,
+			false,
 		)
 
 		err := mysql.Open()
