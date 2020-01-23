@@ -3,6 +3,7 @@ package pg2mysql
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "github.com/lib/pq" // register postgres driver
 )
@@ -87,4 +88,8 @@ func (p *postgreSQLDB) EnableConstraints() error {
 
 func (p *postgreSQLDB) DisableConstraints() error {
 	panic("not implemented")
+}
+
+func (p *postgreSQLDB) NormalizeTime(t time.Time) time.Time {
+	return t
 }

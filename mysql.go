@@ -3,6 +3,7 @@ package pg2mysql
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -86,4 +87,8 @@ func (m *mySQLDB) EnableConstraints() error {
 func (m *mySQLDB) DisableConstraints() error {
 	_, err := m.db.Exec("SET FOREIGN_KEY_CHECKS = 0;")
 	return err
+}
+
+func (m *mySQLDB) NormalizeTime(t time.Time) time.Time {
+	return t.Truncate(time.Second)
 }

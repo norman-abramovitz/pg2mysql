@@ -16,6 +16,7 @@ type DB interface {
 	EnableConstraints() error
 	ColumnNameForSelect(columnName string) string
 	DB() *sql.DB
+	NormalizeTime(time.Time) time.Time
 }
 
 type Schema struct {
@@ -242,7 +243,7 @@ func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
 
 			// replace the precise PostgreSQL time with a less precise MySQL-compatible time
 			if t1, ok := (*iface).(time.Time); ok {
-				var timeArg interface{} = t1.Truncate(time.Second)
+				var timeArg interface{} = dst.NormalizeTime(t1)
 				scanArgs[i] = &timeArg
 			}
 		}
