@@ -17,16 +17,16 @@ func (runner *Runner) DB() *sql.DB {
 }
 
 func (runner *Runner) Setup() error {
-	dbConfig := &mysql.Config{
-		User:            "root",
-		Net:             "tcp",
-		Addr:            "127.0.0.1:3306",
-		MultiStatements: true,
-		Params: map[string]string{
-			"charset":   "utf8",
-			"parseTime": "True",
-		},
+	dbConfig := mysql.NewConfig()
+	dbConfig.User = "root"
+	dbConfig.Net = "tcp"
+	dbConfig.Addr = "127.0.0.1:3306"
+	dbConfig.MultiStatements = true
+	dbConfig.Params = map[string]string{
+		"charset":   "utf8",
+		"parseTime": "True",
 	}
+
 	dbConn, err := sql.Open("mysql", dbConfig.FormatDSN())
 	if err != nil {
 		return err

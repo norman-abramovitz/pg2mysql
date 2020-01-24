@@ -16,17 +16,16 @@ func NewMySQLDB(
 	port int,
 	roundTime bool,
 ) DB {
-	config := mysql.Config{
-		User:            username,
-		Passwd:          password,
-		DBName:          database,
-		Net:             "tcp",
-		Addr:            fmt.Sprintf("%s:%d", host, port),
-		MultiStatements: true,
-		Params: map[string]string{
-			"charset":   "utf8",
-			"parseTime": "True",
-		},
+	config := mysql.NewConfig()
+	config.User = username
+	config.Passwd = password
+	config.DBName = database
+	config.Net = "tcp"
+	config.Addr = fmt.Sprintf("%s:%d", host, port)
+	config.MultiStatements = true
+	config.Params = map[string]string{
+		"charset":   "utf8",
+		"parseTime": "True",
 	}
 
 	return &mySQLDB{
