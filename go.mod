@@ -8,6 +8,5 @@ require (
 	github.com/lib/pq v0.0.0-20170324204654-2704adc878c2
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
-	github.com/pivotal-cf/pg2mysql v0.0.6
 	gopkg.in/yaml.v2 v2.2.8
 )
