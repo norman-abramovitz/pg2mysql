@@ -95,3 +95,12 @@ func (p *postgreSQLDB) DisableConstraints() error {
 func (p *postgreSQLDB) NormalizeTime(t time.Time) time.Time {
 	return t
 }
+
+func (p *postgreSQLDB) ParameterMarker(paramIndex int) string {
+	// postgres parameters are 1 indexed, go arrays are 0 indexed
+	return fmt.Sprintf("$%d", paramIndex+1)
+}
+
+func (p *postgreSQLDB) ComparisonClause(paramIndex int, columnName string) string {
+	return fmt.Sprintf("NOT(%s IS DISTINCT FROM %s)", p.ColumnNameForSelect(columnName), p.ParameterMarker(paramIndex))
+}
