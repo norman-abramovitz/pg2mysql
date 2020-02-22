@@ -223,6 +223,7 @@ func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
 	}
 
 	stmt = fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE %s)`, table.Name, strings.Join(colVals, " AND "))
+	fmt.Println(stmt)
 	preparedStmt, err := dst.DB().Prepare(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %s", err)

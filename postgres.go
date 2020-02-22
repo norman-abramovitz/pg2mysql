@@ -83,11 +83,13 @@ func (p *postgreSQLDB) ColumnNameForSelect(name string) string {
 }
 
 func (p *postgreSQLDB) EnableConstraints() error {
-	panic("not implemented")
+	// We don't have foreign key constraints
+	return nil
 }
 
 func (p *postgreSQLDB) DisableConstraints() error {
-	panic("not implemented")
+	// we don't have foreign key constraints
+	return nil
 }
 
 func (p *postgreSQLDB) NormalizeTime(t time.Time) time.Time {
