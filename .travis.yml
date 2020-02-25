@@ -3,3 +3,6 @@ services:
   - docker
 go:
   - "1.12"
+env:
+  global:
+  - GO111MODULE=on
