@@ -8,8 +8,11 @@ linux: test
 build: test
 	go build -o pg2mysql cmd/pg2mysql/main.go
 
-test:
-	go test
+test: container
+	docker run pg2mysql:test go test
+
+container:
+	docker build -t pg2mysql:test .
 
 clean:
 	rm pg2mysql_linux

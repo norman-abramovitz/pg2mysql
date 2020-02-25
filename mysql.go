@@ -98,3 +98,11 @@ func (m *mySQLDB) NormalizeTime(t time.Time) time.Time {
 
 	return t.Truncate(time.Second)
 }
+
+func (m *mySQLDB) ParameterMarker(paramIndex int) string {
+	return "?"
+}
+
+func (m *mySQLDB) ComparisonClause(paramIndex int, columnName string) string {
+	return fmt.Sprintf("%s <=> %s", m.ColumnNameForSelect(columnName), m.ParameterMarker(paramIndex))
+}

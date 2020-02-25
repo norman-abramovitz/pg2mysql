@@ -17,7 +17,7 @@ var _ = Describe("Validator", func() {
 		mysql = pg2mysql.NewMySQLDB(
 			mysqlRunner.DBName,
 			"root",
-			"",
+			"admin",
 			"127.0.0.1",
 			3306,
 			false,
@@ -30,7 +30,7 @@ var _ = Describe("Validator", func() {
 			pgRunner.DBName,
 			"",
 			"",
-			"127.0.0.1",
+			"/var/run/postgresql",
 			5432,
 			"disable",
 		)

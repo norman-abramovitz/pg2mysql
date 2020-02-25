@@ -11,37 +11,50 @@ type MigrateCommand struct {
 }
 
 func (c *MigrateCommand) Execute([]string) error {
-	mysql := pg2mysql.NewMySQLDB(
-		PG2MySQL.Config.MySQL.Database,
-		PG2MySQL.Config.MySQL.Username,
-		PG2MySQL.Config.MySQL.Password,
-		PG2MySQL.Config.MySQL.Host,
-		PG2MySQL.Config.MySQL.Port,
-		PG2MySQL.Config.MySQL.RoundTime,
-	)
+	var dest pg2mysql.DB
 
-	err := mysql.Open()
+	if PG2MySQL.Config.Dest.Flavor == "mysql" {
+		dest = pg2mysql.NewMySQLDB(
+			PG2MySQL.Config.Dest.Database,
+			PG2MySQL.Config.Dest.Username,
+			PG2MySQL.Config.Dest.Password,
+			PG2MySQL.Config.Dest.Host,
+			PG2MySQL.Config.Dest.Port,
+			PG2MySQL.Config.Dest.RoundTime,
+		)
+	} else if PG2MySQL.Config.Dest.Flavor == "psql" {
+		dest = pg2mysql.NewPostgreSQLDB(
+			PG2MySQL.Config.Dest.Database,
+			PG2MySQL.Config.Dest.Username,
+			PG2MySQL.Config.Dest.Password,
+			PG2MySQL.Config.Dest.Host,
+			PG2MySQL.Config.Dest.Port,
+			PG2MySQL.Config.Dest.SSLMode,
+		)
+	}
+
+	err := dest.Open()
 	if err != nil {
 		return fmt.Errorf("failed to open mysql connection: %s", err)
 	}
-	defer mysql.Close()
+	defer dest.Close()
 
-	pg := pg2mysql.NewPostgreSQLDB(
-		PG2MySQL.Config.PostgreSQL.Database,
-		PG2MySQL.Config.PostgreSQL.Username,
-		PG2MySQL.Config.PostgreSQL.Password,
-		PG2MySQL.Config.PostgreSQL.Host,
-		PG2MySQL.Config.PostgreSQL.Port,
-		PG2MySQL.Config.PostgreSQL.SSLMode,
+	src := pg2mysql.NewPostgreSQLDB(
+		PG2MySQL.Config.Source.Database,
+		PG2MySQL.Config.Source.Username,
+		PG2MySQL.Config.Source.Password,
+		PG2MySQL.Config.Source.Host,
+		PG2MySQL.Config.Source.Port,
+		PG2MySQL.Config.Source.SSLMode,
 	)
-	err = pg.Open()
+	err = src.Open()
 	if err != nil {
 		return fmt.Errorf("failed to open pg connection: %s", err)
 	}
-	defer pg.Close()
+	defer src.Close()
 
 	watcher := pg2mysql.NewStdoutPrinter()
-	err = pg2mysql.NewMigrator(pg, mysql, c.Truncate, watcher).Migrate()
+	err = pg2mysql.NewMigrator(src, dest, c.Truncate, watcher).Migrate()
 	if err != nil {
 		return fmt.Errorf("failed migrating: %s", err)
 	}

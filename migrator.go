@@ -63,8 +63,8 @@ func (m *migrator) Migrate() error {
 		columnNamesForInsert := make([]string, len(table.Columns))
 		placeholders := make([]string, len(table.Columns))
 		for i := range table.Columns {
-			columnNamesForInsert[i] = fmt.Sprintf("`%s`", table.Columns[i].Name)
-			placeholders[i] = "?"
+			columnNamesForInsert[i] = m.dst.ColumnNameForSelect(table.Columns[i].Name)
+			placeholders[i] = m.dst.ParameterMarker(i)
 		}
 
 		preparedStmt, err := m.dst.DB().Prepare(fmt.Sprintf(

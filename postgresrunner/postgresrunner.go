@@ -27,7 +27,7 @@ func (runner *Runner) Setup() error {
 		return fmt.Errorf("failed to create database %s: %s\n%s", runner.DBName, err, out.String())
 	}
 
-	dsn := fmt.Sprintf("dbname=%s sslmode=disable", runner.DBName)
+	dsn := fmt.Sprintf("dbname=%s sslmode=disable host=/var/run/postgresql", runner.DBName)
 	dbConn, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return fmt.Errorf("failed to open connection to database: %s", err)
