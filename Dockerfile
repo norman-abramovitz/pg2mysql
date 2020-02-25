@@ -1,6 +1,9 @@
 FROM debian:buster
 
-ADD . .
+ADD mysql.key .
+ADD entrypoint.sh .
+
+VOLUME [ "/src" ]
 
 RUN apt-get update && \
     apt-get install -y curl gnupg && \
@@ -17,4 +20,6 @@ RUN apt-get update && \
     rm go1.13.6.linux-amd64.tar.gz && \
     ln -s /usr/local/go/bin/go /usr/local/bin/go
 
-ENTRYPOINT [ "./entrypoint.sh" ]
+WORKDIR /src
+
+ENTRYPOINT [ "/entrypoint.sh" ]

@@ -9,7 +9,7 @@ build: test
 	go build -o pg2mysql cmd/pg2mysql/main.go
 
 test: container
-	docker run pg2mysql:test go test
+	docker run -v "$(shell pwd):/src" pg2mysql:test go test
 
 container:
 	docker build -t pg2mysql:test .
