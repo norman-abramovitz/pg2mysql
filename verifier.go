@@ -58,6 +58,7 @@ func ColIDToString(colID interface{}) string {
 	case []byte:
 		var u uuid.UUID
 		s := fmt.Sprintf("%v", v)
+
 		if len(v) == 16 {
 			u, err := uuid.FromBytes(v)
 			if err == nil {
