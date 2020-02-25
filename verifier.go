@@ -56,11 +56,21 @@ func (v *verifier) Verify() error {
 func ColIDToString(colID interface{}) string {
 	switch v := colID.(type) {
 	case []byte:
-		u, err := uuid.FromBytes(v)
-		if err != nil {
-			return fmt.Sprintf("%v", v)
+		var u uuid.UUID
+		s := fmt.Sprintf("%v", v)
+		if len(v) == 16 {
+			u, err := uuid.FromBytes(v)
+			if err == nil {
+				s = u.String()
+			}
+			return u.String()
+		} else if len(v) == 36 {
+			err := u.UnmarshalText(v)
+			if err == nil {
+				s = u.String()
+			}
 		}
-		return u.String()
+		return s
 	default:
 		return fmt.Sprintf("%v", v)
 	}

@@ -198,4 +198,16 @@ var _ = Describe("colIDToString", func() {
 
 		Expect(pg2mysql.ColIDToString([]byte{45, 23, 44})).To(Equal("[45 23 44]"))
 	})
+	It("handles UUIDs serilized to string", func() {
+		b := []byte{52, 98, 52, 57, 102, 98, 100, 50,
+			45, 57, 55, 49, 53, 45, 52, 100,
+			52, 57, 45, 98, 54, 50, 98, 45, 53,
+			55, 52, 102, 56, 57, 99, 99, 54, 102,
+			98, 102}
+
+		var u uuid.UUID
+		u.UnmarshalText(b)
+
+		Expect(pg2mysql.ColIDToString(b)).To(Equal(u.String()))
+	})
 })
