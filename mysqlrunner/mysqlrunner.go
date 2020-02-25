@@ -19,6 +19,7 @@ func (runner *Runner) DB() *sql.DB {
 func (runner *Runner) Setup() error {
 	dbConfig := mysql.NewConfig()
 	dbConfig.User = "root"
+	dbConfig.Passwd = "admin"
 	dbConfig.Net = "tcp"
 	dbConfig.Addr = "127.0.0.1:3306"
 	dbConfig.MultiStatements = true
