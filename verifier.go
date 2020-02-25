@@ -1,6 +1,10 @@
 package pg2mysql
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 type Verifier interface {
 	Verify() error
@@ -33,7 +37,7 @@ func (v *verifier) Verify() error {
 		err = EachMissingRow(v.src, v.dst, table, func(scanArgs []interface{}) {
 			if colIndex, _, getColErr := table.GetColumn("id"); getColErr == nil {
 				if colID, ok := scanArgs[colIndex].(*interface{}); ok {
-					missingIDs = append(missingIDs, fmt.Sprintf("%v", *colID))
+					missingIDs = append(missingIDs, ColIDToString(*colID))
 				}
 			}
 			missingRows++
@@ -47,4 +51,17 @@ func (v *verifier) Verify() error {
 	}
 
 	return nil
+}
+
+func ColIDToString(colID interface{}) string {
+	switch v := colID.(type) {
+	case []byte:
+		u, err := uuid.FromBytes(v)
+		if err != nil {
+			return fmt.Sprintf("%v", v)
+		}
+		return u.String()
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }

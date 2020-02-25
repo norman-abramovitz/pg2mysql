@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/protobuf v1.3.2 // indirect
+	github.com/google/uuid v1.1.1
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/lib/pq v1.3.0
 	github.com/onsi/ginkgo v1.11.0

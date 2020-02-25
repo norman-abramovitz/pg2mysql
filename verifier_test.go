@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/tompiscitell/pg2mysql"
@@ -178,5 +179,23 @@ var _ = Describe("Verifier", func() {
 				}
 			})
 		})
+	})
+})
+
+var _ = Describe("colIDToString", func() {
+	It("handles integers", func() {
+		var id interface{} = 9
+
+		Expect(pg2mysql.ColIDToString(id)).To(Equal("9"))
+	})
+	It("handles uuids", func() {
+		someUUID := uuid.New()
+		uuidBytes, _ := someUUID.MarshalBinary()
+
+		Expect(pg2mysql.ColIDToString(uuidBytes)).To(Equal(someUUID.String()))
+	})
+	It("handles byte arrays that aren't uuids", func() {
+
+		Expect(pg2mysql.ColIDToString([]byte{45, 23, 44})).To(Equal("[45 23 44]"))
 	})
 })
