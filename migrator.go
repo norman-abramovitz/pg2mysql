@@ -151,17 +151,19 @@ func migrateWithIDs(
 		strings.Join(columnNamesForSelect, ","),
 		table.Name,
 	)
+	selectArgs := make([]interface{}, 0)
 
-	if len(dstIDs) > 0 {
+	if len(dstIDs) > 0 && len(dstIDs) < 65535 {
 		placeholders := make([]string, len(dstIDs))
 		for i := range dstIDs {
 			placeholders[i] = fmt.Sprintf("$%d", i+1)
 		}
 
 		stmt = fmt.Sprintf("%s WHERE id NOT IN (%s)", stmt, strings.Join(placeholders, ","))
+		selectArgs = dstIDs
 	}
 
-	rows, err = src.DB().Query(stmt, dstIDs...)
+	rows, err = src.DB().Query(stmt, selectArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to select rows: %s", err)
 	}
@@ -173,7 +175,9 @@ func migrateWithIDs(
 
 		err = insert(preparedStmt, scanArgs)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to insert into %s: %s\n", table.Name, err)
+			if !isPrimaryKeyError(err) {
+				fmt.Fprintf(os.Stderr, "failed to insert into %s: %s\n", table.Name, err)
+			}
 			continue
 		}
 
@@ -207,4 +211,8 @@ func insert(stmt *sql.Stmt, values []interface{}) error {
 	}
 
 	return nil
+}
+
+func isPrimaryKeyError(err error) bool {
+	return strings.Contains(err.Error(), "pkey") && strings.Contains(err.Error(), "duplicate key value violates unique constraint")
 }
