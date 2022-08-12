@@ -68,6 +68,11 @@ func (c *Column) Compatible(other *Column) bool {
 		return c.MaxChars < other.MaxChars
 	}
 
+    if (c.Type == "uuid" && (other.Type == "varbinary" || other.Type == "binary") && other.MaxChars == 16) || 
+       ((c.Type == "varbinary" || c.Type == "binary") && c.MaxChars == 16 && other.Type == "uuid") {
+        return true
+    }
+
 	return false
 }
 
@@ -132,6 +137,7 @@ func GetIncompatibleColumns(src, dst *Table) ([]*Column, error) {
 		}
 
 		if dstColumn.Incompatible(srcColumn) {
+            // fmt.Printf("DEBUG: srcColumn %+v dstColumn %+v\n", srcColumn, dstColumn)
 			incompatibleColumns = append(incompatibleColumns, dstColumn)
 		}
 	}
@@ -196,6 +202,7 @@ func GetIncompatibleRowCount(db DB, src, dst *Table) (int64, error) {
 	}
 
 	stmt := fmt.Sprintf("SELECT count(1) FROM %s WHERE %s", src.Name, strings.Join(limits, " OR "))
+    // fmt.Printf("DEBUG: GetIncompatibleRowCount: %s\n", stmt)
 
 	var count int64
 	err = db.DB().QueryRow(stmt).Scan(&count)
@@ -212,13 +219,22 @@ func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
 	scanArgs := make([]interface{}, len(table.Columns))
 	colVals := make([]string, len(table.Columns))
 	for i := range table.Columns {
-		srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name)
+        fmt.Printf( "DEBUG: Columns[%d] = %+v\n", i, table.Columns[i] )
+        if table.Columns[i].Type == "uuid" {
+            srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name + "::text")
+        } else {
+		    srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name)
+        }
+
 		scanArgs[i] = &values[i]
 		colVals[i] = dst.ComparisonClause(i, table.Columns[i].Name)
 	}
 
 	// select all rows in src
 	stmt := fmt.Sprintf("SELECT %s FROM %s", strings.Join(srcColumnNamesForSelect, ","), table.Name)
+    if table.Name == "permission" {
+       
+    }
 	rows, err := src.DB().Query(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to select rows: %s", err)
