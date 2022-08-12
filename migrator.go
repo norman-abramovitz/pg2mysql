@@ -64,7 +64,11 @@ func (m *migrator) Migrate() error {
 		placeholders := make([]string, len(table.Columns))
 		for i := range table.Columns {
 			columnNamesForInsert[i] = m.dst.ColumnNameForSelect(table.Columns[i].Name)
-			placeholders[i] = m.dst.ParameterMarker(i)
+            if table.Columns[i].Type == "uuid" {
+                placeholders[i] = "unhex(replace(" + m.dst.ParameterMarker(i) + ",'-',''))"
+            } else {
+			    placeholders[i] = m.dst.ParameterMarker(i)
+            }
 		}
 
 		preparedStmt, err := m.dst.DB().Prepare(fmt.Sprintf(
@@ -76,6 +80,7 @@ func (m *migrator) Migrate() error {
 		if err != nil {
 			return fmt.Errorf("failed creating prepared statement: %s", err)
 		}
+        // fmt.Printf( "DEBUG Insert : %+v\n", preparedStmt )
 
 		var recordsInserted int64
 

@@ -219,7 +219,7 @@ func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
 	scanArgs := make([]interface{}, len(table.Columns))
 	colVals := make([]string, len(table.Columns))
 	for i := range table.Columns {
-        fmt.Printf( "DEBUG: Columns[%d] = %+v\n", i, table.Columns[i] )
+        // fmt.Printf( "DEBUG: Columns[%d] = %+v\n", i, table.Columns[i] )
         if table.Columns[i].Type == "uuid" {
             srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name + "::text")
         } else {
