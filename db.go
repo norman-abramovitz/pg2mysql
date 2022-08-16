@@ -18,7 +18,7 @@ type DB interface {
 	ParameterMarker(paramIndex int) string
 	DB() *sql.DB
 	NormalizeTime(time.Time) time.Time
-	ComparisonClause(paramIndex int, columnName string) string
+	ComparisonClause(paramIndex int, columnName string, columnType string) string
 }
 
 type Schema struct {
@@ -218,29 +218,24 @@ func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
 	values := make([]interface{}, len(table.Columns))
 	scanArgs := make([]interface{}, len(table.Columns))
 	colVals := make([]string, len(table.Columns))
-	for i := range table.Columns {
+    for i := range table.Columns {
         // fmt.Printf( "DEBUG: Columns[%d] = %+v\n", i, table.Columns[i] )
-        if table.Columns[i].Type == "uuid" {
-            srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name + "::text")
-        } else {
-		    srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name)
-        }
-
+        srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name)
 		scanArgs[i] = &values[i]
-		colVals[i] = dst.ComparisonClause(i, table.Columns[i].Name)
-	}
+		colVals[i] = dst.ComparisonClause(i, table.Columns[i].Name, table.Columns[i].Type)
+    }
 
 	// select all rows in src
 	stmt := fmt.Sprintf("SELECT %s FROM %s", strings.Join(srcColumnNamesForSelect, ","), table.Name)
-    if table.Name == "permission" {
-       
-    }
+    //fmt.Printf( "DEBUG SOURCE: \n%s\n", stmt)
+
 	rows, err := src.DB().Query(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to select rows: %s", err)
 	}
 
 	stmt = fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE %s)`, table.Name, strings.Join(colVals, " AND "))
+    //fmt.Printf( "DEBUG DESTINATION: \n%s\n", stmt)
 	preparedStmt, err := dst.DB().Prepare(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %s", err)
@@ -265,6 +260,15 @@ func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
 				scanArgs[i] = &timeArg
 			}
 		}
+        // for i := range scanArgs {
+            // arg := scanArgs[i]
+			// iface, ok := arg.(*interface{})
+			// if !ok {
+				// log.Fatalf("received unexpected type as scanArg: %T (should be *interface{})", arg)
+			// }
+            //fmt.Printf( "DEBUG scanArgs : %v  ", *iface )
+        // }
+        // fmt.Printf("\n")
 
 		// determine if the row exists in dst
 		if err = preparedStmt.QueryRow(scanArgs...).Scan(&exists); err != nil {

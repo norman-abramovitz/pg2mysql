@@ -101,6 +101,6 @@ func (p *postgreSQLDB) ParameterMarker(paramIndex int) string {
 	return fmt.Sprintf("$%d", paramIndex+1)
 }
 
-func (p *postgreSQLDB) ComparisonClause(paramIndex int, columnName string) string {
+func (p *postgreSQLDB) ComparisonClause(paramIndex int, columnName string, columnType string) string {
 	return fmt.Sprintf("NOT(%s IS DISTINCT FROM %s)", p.ColumnNameForSelect(columnName), p.ParameterMarker(paramIndex))
 }

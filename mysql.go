@@ -103,6 +103,10 @@ func (m *mySQLDB) ParameterMarker(paramIndex int) string {
 	return "?"
 }
 
-func (m *mySQLDB) ComparisonClause(paramIndex int, columnName string) string {
-	return fmt.Sprintf("%s <=> %s", m.ColumnNameForSelect(columnName), m.ParameterMarker(paramIndex))
+func (m *mySQLDB) ComparisonClause(paramIndex int, columnName string, columnType string) string {
+    clause := fmt.Sprintf("%s <=> %s", m.ColumnNameForSelect(columnName), m.ParameterMarker(paramIndex))
+    if columnType == "uuid" {
+        clause = fmt.Sprintf("%s <=> %s", m.ColumnNameForSelect(columnName), "unhex(replace(" +m.ParameterMarker(paramIndex) + ",'-',''))")
+    }
+    return clause
 }

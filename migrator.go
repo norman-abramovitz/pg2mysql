@@ -77,10 +77,15 @@ func (m *migrator) Migrate() error {
 			strings.Join(columnNamesForInsert, ","),
 			strings.Join(placeholders, ","),
 		))
+
+        // omgdebug
+        if len(os.Getenv("DEBUG_SQL")) > 0 {
+            fmt.Printf("DEBUG Insert : %+v\n", preparedStmt)
+        }
+
 		if err != nil {
 			return fmt.Errorf("failed creating prepared statement: %s", err)
 		}
-        // fmt.Printf( "DEBUG Insert : %+v\n", preparedStmt )
 
 		var recordsInserted int64
 
