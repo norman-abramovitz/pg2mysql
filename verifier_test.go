@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/tompiscitell/pg2mysql"
-	"github.com/tompiscitell/pg2mysql/pg2mysqlfakes"
+	"pg2mysql"
+	"pg2mysql/pg2mysqlfakes"
 )
 
 var _ = Describe("Verifier", func() {

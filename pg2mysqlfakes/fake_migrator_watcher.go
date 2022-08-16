@@ -4,7 +4,7 @@ package pg2mysqlfakes
 import (
 	"sync"
 
-	"github.com/tompiscitell/pg2mysql"
+	"pg2mysql"
 )
 
 type FakeMigratorWatcher struct {

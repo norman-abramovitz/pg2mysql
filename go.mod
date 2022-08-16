@@ -1,4 +1,4 @@
-module github.com/tompiscitell/pg2mysql
+module pg2mysql
 
 go 1.18
 
