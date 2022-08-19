@@ -6,7 +6,9 @@ import (
 	"pg2mysql"
 )
 
-type ValidateCommand struct{}
+type ValidateCommand struct {
+    Debug map[string]bool `short:"d" long:"debug" description:"Set up debug options"` 
+}
 
 func (c *ValidateCommand) Execute([]string) error {
 	var dest pg2mysql.DB
@@ -51,7 +53,7 @@ func (c *ValidateCommand) Execute([]string) error {
 	}
 	defer src.Close()
 
-	results, err := pg2mysql.NewValidator(src, dest).Validate()
+	results, err := pg2mysql.NewValidator(src, dest, c.Debug).Validate()
 	if err != nil {
 		return fmt.Errorf("failed to validate: %s", err)
 	}

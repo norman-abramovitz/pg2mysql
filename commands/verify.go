@@ -6,7 +6,9 @@ import (
 	"pg2mysql"
 )
 
-type VerifyCommand struct{}
+type VerifyCommand struct{
+    Debug map[string]bool `short:"d" long:"debug" description:"Set up debug options"` 
+}
 
 func (c *VerifyCommand) Execute([]string) error {
 	var dest pg2mysql.DB
@@ -52,7 +54,7 @@ func (c *VerifyCommand) Execute([]string) error {
 	defer src.Close()
 
 	watcher := pg2mysql.NewStdoutPrinter()
-	err = pg2mysql.NewVerifier(src, dest, watcher).Verify()
+	err = pg2mysql.NewVerifier(src, dest, c.Debug, watcher).Verify()
 	if err != nil {
 		return fmt.Errorf("failed to verify: %s", err)
 	}

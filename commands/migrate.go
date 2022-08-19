@@ -8,6 +8,7 @@ import (
 
 type MigrateCommand struct {
 	Truncate bool `long:"truncate" description:"Truncate destination tables before migrating data"`
+    Debug map[string]bool `short:"d" long:"debug" description:"Set up debug options"` 
 }
 
 func (c *MigrateCommand) Execute([]string) error {
@@ -54,7 +55,7 @@ func (c *MigrateCommand) Execute([]string) error {
 	defer src.Close()
 
 	watcher := pg2mysql.NewStdoutPrinter()
-	err = pg2mysql.NewMigrator(src, dest, c.Truncate, watcher).Migrate()
+	err = pg2mysql.NewMigrator(src, dest, c.Truncate, watcher, c.Debug).Migrate()
 	if err != nil {
 		return fmt.Errorf("failed migrating: %s", err)
 	}
