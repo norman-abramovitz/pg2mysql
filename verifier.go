@@ -12,13 +12,15 @@ type Verifier interface {
 
 type verifier struct {
 	src, dst DB
+    debug map[string]bool
 	watcher  VerifierWatcher
 }
 
-func NewVerifier(src, dst DB, watcher VerifierWatcher) Verifier {
+func NewVerifier(src, dst DB, debug map[string]bool, watcher VerifierWatcher) Verifier {
 	return &verifier{
 		src:     src,
 		dst:     dst,
+        debug:   debug,
 		watcher: watcher,
 	}
 }
@@ -29,13 +31,23 @@ func (v *verifier) Verify() error {
 		return fmt.Errorf("failed to build source schema: %s", err)
 	}
 
+	dstSchema, err := BuildSchema(v.dst)
+	if err != nil {
+		return fmt.Errorf("failed to build source schema: %s", err)
+	}
+
 	for _, table := range srcSchema.Tables {
-		v.watcher.TableVerificationDidStart(table.Name)
+		v.watcher.TableVerificationDidStart(table.ActualName)
+
+		dstTable, err := dstSchema.GetTable(table.NormalizedName)
+		if err != nil {
+            return fmt.Errorf("failed to get table from destination schema: %s", err)
+        }
 
 		var missingRows int64
 		var missingIDs []string
-		err = EachMissingRow(v.src, v.dst, table, func(scanArgs []interface{}) {
-			if colIndex, _, getColErr := table.GetColumn("id"); getColErr == nil {
+		err = EachMissingRow(v.src, v.dst, table, dstTable, v.debug, func(scanArgs []interface{}) {
+			if colIndex, _, getColErr := table.GetColumn(&IDColumn); getColErr == nil {
 				if colID, ok := scanArgs[colIndex].(*interface{}); ok {
 					missingIDs = append(missingIDs, ColIDToString(*colID))
 				}
@@ -43,11 +55,11 @@ func (v *verifier) Verify() error {
 			missingRows++
 		})
 		if err != nil {
-			v.watcher.TableVerificationDidFinishWithError(table.Name, err)
+			v.watcher.TableVerificationDidFinishWithError(table.ActualName, err)
 			continue
 		}
 
-		v.watcher.TableVerificationDidFinish(table.Name, missingRows, missingIDs)
+		v.watcher.TableVerificationDidFinish(table.ActualName, missingRows, missingIDs)
 	}
 
 	return nil

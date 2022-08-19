@@ -8,15 +8,17 @@ type Validator interface {
 	Validate() ([]ValidationResult, error)
 }
 
-func NewValidator(src, dst DB) Validator {
+func NewValidator(src, dst DB, debug map[string]bool) Validator {
 	return &validator{
 		src: src,
 		dst: dst,
+      debug: debug,
 	}
 }
 
 type validator struct {
 	src, dst DB
+    debug map[string]bool
 }
 
 func (v *validator) Validate() ([]ValidationResult, error) {
@@ -25,26 +27,39 @@ func (v *validator) Validate() ([]ValidationResult, error) {
 		return nil, fmt.Errorf("failed to build source schema: %s", err)
 	}
 
+    if v.debug["schema"] {
+        fmt.Printf("DEBUG SOURCE SCHEMA: %v\n", srcSchema)
+    }
+
 	dstSchema, err := BuildSchema(v.dst)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build destination schema: %s", err)
 	}
 
+    if v.debug["schema"] {
+        fmt.Printf("DEBUG DESTINATION SCHEMA: %v\n", dstSchema)
+    }
+
+
 	var results []ValidationResult
 	for _, srcTable := range srcSchema.Tables {
-		dstTable, err := dstSchema.GetTable(srcTable.Name)
+		dstTable, err := dstSchema.GetTable(srcTable.NormalizedName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get table from destination schema: %s", err)
+            return nil, fmt.Errorf("failed to get table from destination schema: %s", err)
+        }
+        if dstTable.ActualName != srcTable.ActualName {
+            fmt.Println( "Warning: Source table", srcTable.ActualName,
+                         "does not exist in the destination schema, but found", dstTable.ActualName, "instead.")
 		}
 
-		if srcTable.HasColumn("id") {
+		if srcTable.HasColumn(&IDColumn) {
 			rowIDs, err := GetIncompatibleRowIDs(v.src, srcTable, dstTable)
 			if err != nil {
 				return nil, fmt.Errorf("failed getting incompatible row ids: %s", err)
 			}
 
 			results = append(results, ValidationResult{
-				TableName:            srcTable.Name,
+				TableName:            srcTable.ActualName,
 				IncompatibleRowIDs:   rowIDs,
 				IncompatibleRowCount: int64(len(rowIDs)),
 			})
@@ -55,7 +70,7 @@ func (v *validator) Validate() ([]ValidationResult, error) {
 			}
 
 			results = append(results, ValidationResult{
-				TableName:            srcTable.Name,
+				TableName:            srcTable.ActualName,
 				IncompatibleRowCount: rowCount,
 			})
 		}

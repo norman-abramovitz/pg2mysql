@@ -64,7 +64,9 @@ func (m *mySQLDB) GetSchemaRows() (*sql.Rows, error) {
 				 data_type,
 				 character_maximum_length
 	FROM   information_schema.columns
-	WHERE  table_schema = ?`
+	WHERE  table_schema = ?
+    ORDER BY table_name, column_name
+    COLLATE utf8_bin`
 	rows, err := m.db.Query(query, m.dbName)
 	if err != nil {
 		return nil, err

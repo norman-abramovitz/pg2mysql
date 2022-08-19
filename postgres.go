@@ -64,7 +64,8 @@ func (p *postgreSQLDB) GetSchemaRows() (*sql.Rows, error) {
 	            AND t2.table_type = 'BASE TABLE'
 	WHERE  t1.table_schema = 'public'
 	       AND t1.table_name NOT IN ('schema_migrations')
-	       AND t1.table_catalog = $1`
+	       AND t1.table_catalog = $1
+    ORDER BY 1, 2`
 
 	rows, err := p.db.Query(stmt, p.dbName)
 	if err != nil {

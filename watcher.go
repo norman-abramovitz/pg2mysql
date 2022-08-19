@@ -30,6 +30,7 @@ type MigratorWatcher interface {
 	TruncateTableDidFinish(tableName string)
 
 	TableMigrationDidStart(tableName string)
+	TableMigrationInProgress(tableName string, recordsInserted int64)
 	TableMigrationDidFinish(tableName string, recordsInserted int64)
 
 	DidMigrateRow(tableName string)
@@ -111,6 +112,10 @@ func (s *StdoutPrinter) TruncateTableDidFinish(tableName string) {
 
 func (s *StdoutPrinter) TableMigrationDidStart(tableName string) {
 	fmt.Printf("Migrating %s...", tableName)
+}
+
+func (s *StdoutPrinter) TableMigrationInProgress(tableName string, recordsInserted int64) {
+	fmt.Printf("Migrating %s... %d\r", tableName, recordsInserted)
 }
 
 func (s *StdoutPrinter) TableMigrationDidFinish(tableName string, recordsInserted int64) {

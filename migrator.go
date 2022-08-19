@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+    "log"
 	"os"
 	"strings"
 )
@@ -12,12 +13,13 @@ type Migrator interface {
 	Migrate() error
 }
 
-func NewMigrator(src, dst DB, truncateFirst bool, watcher MigratorWatcher) Migrator {
+func NewMigrator(src, dst DB, truncateFirst bool, watcher MigratorWatcher, debug map[string]bool) Migrator {
 	return &migrator{
 		src:           src,
 		dst:           dst,
 		truncateFirst: truncateFirst,
 		watcher:       watcher,
+        debug:         debug,
 	}
 }
 
@@ -25,12 +27,18 @@ type migrator struct {
 	src, dst      DB
 	truncateFirst bool
 	watcher       MigratorWatcher
+    debug         map[string]bool
 }
 
 func (m *migrator) Migrate() error {
 	srcSchema, err := BuildSchema(m.src)
 	if err != nil {
 		return fmt.Errorf("failed to build source schema: %s", err)
+	}
+
+	dstSchema, err := BuildSchema(m.dst)
+	if err != nil {
+		return fmt.Errorf("failed to build destination schema: %s", err)
 	}
 
 	m.watcher.WillDisableConstraints()
@@ -51,19 +59,29 @@ func (m *migrator) Migrate() error {
 	}()
 
 	for _, table := range srcSchema.Tables {
+		dstTable, err := dstSchema.GetTable(table.NormalizedName)
+		if err != nil {
+            return fmt.Errorf("failed to get table from destination schema: %s", err)
+        }
 		if m.truncateFirst {
-			m.watcher.WillTruncateTable(table.Name)
-			_, err := m.dst.DB().Exec(fmt.Sprintf("TRUNCATE TABLE %s", table.Name))
+			m.watcher.WillTruncateTable(dstTable.ActualName)
+            stmt := fmt.Sprintf("TRUNCATE TABLE %s", dstTable.ActualName)
+
+            if m.debug["sql"] {
+                fmt.Println("DEBUG SQL:", stmt)
+            }
+
+			_, err := m.dst.DB().Exec(stmt)
 			if err != nil {
 				return fmt.Errorf("failed truncating: %s", err)
 			}
-			m.watcher.TruncateTableDidFinish(table.Name)
+			m.watcher.TruncateTableDidFinish(table.ActualName)
 		}
 
-		columnNamesForInsert := make([]string, len(table.Columns))
-		placeholders := make([]string, len(table.Columns))
+		columnNamesForInsert := make([]string, len(dstTable.Columns))
+		placeholders := make([]string, len(dstTable.Columns))
 		for i := range table.Columns {
-			columnNamesForInsert[i] = m.dst.ColumnNameForSelect(table.Columns[i].Name)
+			columnNamesForInsert[i] = m.dst.ColumnNameForSelect(dstTable.Columns[i].ActualName)
             if table.Columns[i].Type == "uuid" {
                 placeholders[i] = "unhex(replace(" + m.dst.ParameterMarker(i) + ",'-',''))"
             } else {
@@ -71,16 +89,19 @@ func (m *migrator) Migrate() error {
             }
 		}
 
-		preparedStmt, err := m.dst.DB().Prepare(fmt.Sprintf(
+
+        stmt := fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s)",
-			table.Name,
+			dstTable.ActualName,
 			strings.Join(columnNamesForInsert, ","),
 			strings.Join(placeholders, ","),
-		))
+		)
+
+		preparedStmt, err := m.dst.DB().Prepare(stmt)
 
         // omgdebug
-        if len(os.Getenv("DEBUG_SQL")) > 0 {
-            fmt.Printf("DEBUG Insert : %+v\n", preparedStmt)
+        if m.debug["sql"] {
+            fmt.Println("DEBUG SQL:", stmt)
         }
 
 		if err != nil {
@@ -89,29 +110,32 @@ func (m *migrator) Migrate() error {
 
 		var recordsInserted int64
 
-		m.watcher.TableMigrationDidStart(table.Name)
+		m.watcher.TableMigrationDidStart(table.ActualName)
 
-		if table.HasColumn("id") {
-			err = migrateWithIDs(m.watcher, m.src, m.dst, table, &recordsInserted, preparedStmt)
+		if table.HasColumn(&IDColumn) {
+			err = migrateWithIDs(m.watcher, m.src, m.dst, table, dstTable, m.debug, &recordsInserted, preparedStmt)
 			if err != nil {
 				return fmt.Errorf("failed migrating table with ids: %s", err)
 			}
 		} else {
-			err = EachMissingRow(m.src, m.dst, table, func(scanArgs []interface{}) {
+			err = EachMissingRow(m.src, m.dst, table, dstTable, m.debug, func(scanArgs []interface{}) {
 				err = insert(preparedStmt, scanArgs)
 				if err != nil {
                     fmt.Fprintf(os.Stderr,  "%s\n", preparedStmt  );
-					fmt.Fprintf(os.Stderr, "failed to insert into %s: %s\n", table.Name, err)
+					fmt.Fprintf(os.Stderr, "failed to insert into %s: %s\n", table.ActualName, err)
 					return
 				}
 				recordsInserted++
+                if recordsInserted == 1 || recordsInserted % 10 == 0 {
+                    m.watcher.TableMigrationInProgress( table.ActualName, recordsInserted)
+                }
 			})
 			if err != nil {
 				return fmt.Errorf("failed migrating table without ids: %s", err)
 			}
 		}
 
-		m.watcher.TableMigrationDidFinish(table.Name, recordsInserted)
+		m.watcher.TableMigrationDidFinish(table.ActualName, recordsInserted)
 	}
 
 	return nil
@@ -122,6 +146,8 @@ func migrateWithIDs(
 	src DB,
 	dst DB,
 	table *Table,
+	dstTable *Table,
+    debug map[string]bool,
 	recordsInserted *int64,
 	preparedStmt *sql.Stmt,
 ) error {
@@ -129,12 +155,16 @@ func migrateWithIDs(
 	values := make([]interface{}, len(table.Columns))
 	scanArgs := make([]interface{}, len(table.Columns))
 	for i := range table.Columns {
-		columnNamesForSelect[i] = table.Columns[i].Name
+		columnNamesForSelect[i] = table.Columns[i].ActualName
 		scanArgs[i] = &values[i]
 	}
 
 	// find ids already in dst
-	rows, err := dst.DB().Query(fmt.Sprintf("SELECT id FROM %s", table.Name))
+    stmt := fmt.Sprintf("SELECT id FROM %s", table.ActualName)
+    if debug["sql"] {
+        fmt.Println("DEBUG SQL:", stmt)
+    }
+	rows, err := dst.DB().Query(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to select id from rows: %s", err)
 	}
@@ -157,10 +187,10 @@ func migrateWithIDs(
 	}
 
 	// select data for ids to migrate from src
-	stmt := fmt.Sprintf(
+	stmt = fmt.Sprintf(
 		"SELECT %s FROM %s",
 		strings.Join(columnNamesForSelect, ","),
-		table.Name,
+		table.ActualName,
 	)
 	selectArgs := make([]interface{}, 0)
 
@@ -174,6 +204,9 @@ func migrateWithIDs(
 		selectArgs = dstIDs
 	}
 
+    if debug["sql"] {
+        fmt.Println("DEBUG SQL:", stmt)
+    }
 	rows, err = src.DB().Query(stmt, selectArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to select rows: %s", err)
@@ -183,11 +216,25 @@ func migrateWithIDs(
 		if err = rows.Scan(scanArgs...); err != nil {
 			return fmt.Errorf("failed to scan row: %s", err)
 		}
+        if debug["data"] {
+            for i := range scanArgs {
+                arg := scanArgs[i]
+                iface, ok := arg.(*interface{})
+                if !ok {
+                    log.Fatalf("received unexpected type as scanArg: %T (should be *interface{})", arg)
+                }
+                fmt.Printf( "DEBUG scanArgs : %d:  %T  %v  ", i, *iface, *iface )
+            }
+            fmt.Printf("\n")
+        }
+        if debug["sql"] {
+            fmt.Println("DEBUG SQL: ", preparedStmt)
+        }
 
 		err = insert(preparedStmt, scanArgs)
 		if err != nil {
 			if !isPrimaryKeyError(err) {
-				fmt.Fprintf(os.Stderr, "failed to insert into %s: %s\n", table.Name, err)
+				fmt.Fprintf(os.Stderr, "failed to insert into %s: %s\n", table.ActualName, err)
 			}
 			continue
 		}

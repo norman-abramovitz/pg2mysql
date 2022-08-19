@@ -25,38 +25,47 @@ type Schema struct {
 	Tables map[string]*Table
 }
 
-func (s *Schema) GetTable(name string) (*Table, error) {
-	if table, ok := s.Tables[name]; ok {
+ 
+func (s *Schema) GetTable(normalizedName string) (*Table, error) {
+	if table, ok := s.Tables[normalizedName]; ok {
 		return table, nil
 	}
-
-	return nil, fmt.Errorf("table '%s' not found", name)
+	return nil, fmt.Errorf("table '%s' not found", normalizedName)
 }
 
 type Table struct {
-	Name    string
+	ActualName    string
+	NormalizedName    string
 	Columns []*Column
 }
 
-func (t *Table) HasColumn(name string) bool {
-	_, _, err := t.GetColumn(name)
+func (t *Table) HasColumn(other *Column) bool {
+	_, _, err := t.GetColumn(other)
 	return err == nil
 }
 
-func (t *Table) GetColumn(name string) (int, *Column, error) {
+func (t *Table) GetColumn(other *Column) (int, *Column, error) {
 	for i, column := range t.Columns {
-		if column.Name == name {
+		if column.NormalizedName == other.NormalizedName {
+            if column.ActualName != other.ActualName {
+                fmt.Printf( "Warning: Actual columns do not match %s - %s\n", column.ActualName, other.ActualName )
+            }
 			return i, column, nil
 		}
 	}
-
-	return -1, nil, fmt.Errorf("column '%s' not found", name)
+	return -1, nil, fmt.Errorf("column '%s' not found", other.ActualName)
 }
 
 type Column struct {
-	Name     string
-	Type     string
-	MaxChars int64
+	ActualName     string
+    NormalizedName string
+	Type           string
+	MaxChars       int64
+}
+
+var IDColumn Column = Column {
+    ActualName:     "id",
+    NormalizedName: "id",
 }
 
 func (c *Column) Compatible(other *Column) bool {
@@ -100,9 +109,10 @@ func BuildSchema(db DB) (*Schema, error) {
 		}
 
 		data[table.String] = append(data[table.String], &Column{
-			Name:     column.String,
-			Type:     datatype.String,
-			MaxChars: maxChars.Int64,
+			ActualName:     column.String,
+			NormalizedName: strings.ToLower(column.String),
+			Type:           datatype.String,
+			MaxChars:       maxChars.Int64,
 		})
 	}
 
@@ -119,8 +129,10 @@ func BuildSchema(db DB) (*Schema, error) {
 	}
 
 	for k, v := range data {
-		schema.Tables[k] = &Table{
-			Name:    k,
+        normalizedName := strings.ToLower(k)
+		schema.Tables[normalizedName] = &Table{
+			ActualName:    k,
+            NormalizedName: normalizedName,
 			Columns: v,
 		}
 	}
@@ -131,9 +143,9 @@ func BuildSchema(db DB) (*Schema, error) {
 func GetIncompatibleColumns(src, dst *Table) ([]*Column, error) {
 	var incompatibleColumns []*Column
 	for _, dstColumn := range dst.Columns {
-		_, srcColumn, err := src.GetColumn(dstColumn.Name)
+		_, srcColumn, err := src.GetColumn(dstColumn)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find column '%s/%s' in source schema: %s", dst.Name, dstColumn.Name, err)
+			return nil, fmt.Errorf("failed to find column '%s/%s' in source schema: %s", dst.ActualName, dstColumn.ActualName, err)
 		}
 
 		if dstColumn.Incompatible(srcColumn) {
@@ -157,10 +169,10 @@ func GetIncompatibleRowIDs(db DB, src, dst *Table) ([]int, error) {
 
 	limits := make([]string, len(columns))
 	for i, column := range columns {
-		limits[i] = fmt.Sprintf("LENGTH(%s) > %d", column.Name, column.MaxChars)
+		limits[i] = fmt.Sprintf("LENGTH(%s) > %d", column.ActualName, column.MaxChars)
 	}
 
-	stmt := fmt.Sprintf("SELECT id FROM %s WHERE %s", src.Name, strings.Join(limits, " OR "))
+	stmt := fmt.Sprintf("SELECT id FROM %s WHERE %s", src.ActualName, strings.Join(limits, " OR "))
 	rows, err := db.DB().Query(stmt)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting incompatible row ids: %s", err)
@@ -198,10 +210,10 @@ func GetIncompatibleRowCount(db DB, src, dst *Table) (int64, error) {
 
 	limits := make([]string, len(columns))
 	for i, column := range columns {
-		limits[i] = fmt.Sprintf("length(%s) > %d", column.Name, column.MaxChars)
+		limits[i] = fmt.Sprintf("length(%s) > %d", column.ActualName, column.MaxChars)
 	}
 
-	stmt := fmt.Sprintf("SELECT count(1) FROM %s WHERE %s", src.Name, strings.Join(limits, " OR "))
+	stmt := fmt.Sprintf("SELECT count(1) FROM %s WHERE %s", src.ActualName, strings.Join(limits, " OR "))
     // fmt.Printf("DEBUG: GetIncompatibleRowCount: %s\n", stmt)
 
 	var count int64
@@ -213,28 +225,34 @@ func GetIncompatibleRowCount(db DB, src, dst *Table) (int64, error) {
 	return count, nil
 }
 
-func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
+func EachMissingRow(src, dst DB, table *Table, dstTable *Table, debug map[string]bool, f func([]interface{})) error {
 	srcColumnNamesForSelect := make([]string, len(table.Columns))
 	values := make([]interface{}, len(table.Columns))
 	scanArgs := make([]interface{}, len(table.Columns))
 	colVals := make([]string, len(table.Columns))
     for i := range table.Columns {
         // fmt.Printf( "DEBUG: Columns[%d] = %+v\n", i, table.Columns[i] )
-        srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].Name)
+        srcColumnNamesForSelect[i] = src.ColumnNameForSelect(table.Columns[i].ActualName)
 		scanArgs[i] = &values[i]
-		colVals[i] = dst.ComparisonClause(i, table.Columns[i].Name, table.Columns[i].Type)
+		colVals[i] = dst.ComparisonClause(i, dstTable.Columns[i].ActualName, table.Columns[i].Type)
     }
 
 	// select all rows in src
-	stmt := fmt.Sprintf("SELECT %s FROM %s", strings.Join(srcColumnNamesForSelect, ","), table.Name)
+	stmt := fmt.Sprintf("SELECT %s FROM %s", strings.Join(srcColumnNamesForSelect, ","), table.ActualName)
     //fmt.Printf( "DEBUG SOURCE: \n%s\n", stmt)
+    if debug["sql"] {
+        fmt.Println("DEBUG SQL:", stmt)
+    }
 
 	rows, err := src.DB().Query(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to select rows: %s", err)
 	}
 
-	stmt = fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE %s)`, table.Name, strings.Join(colVals, " AND "))
+	stmt = fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE %s)`, dstTable.ActualName, strings.Join(colVals, " AND "))
+    if debug["sql"] {
+        fmt.Println("DEBUG SQL:", stmt)
+    }
     //fmt.Printf( "DEBUG DESTINATION: \n%s\n", stmt)
 	preparedStmt, err := dst.DB().Prepare(stmt)
 	if err != nil {
@@ -260,15 +278,17 @@ func EachMissingRow(src, dst DB, table *Table, f func([]interface{})) error {
 				scanArgs[i] = &timeArg
 			}
 		}
-        // for i := range scanArgs {
-            // arg := scanArgs[i]
-			// iface, ok := arg.(*interface{})
-			// if !ok {
-				// log.Fatalf("received unexpected type as scanArg: %T (should be *interface{})", arg)
-			// }
-            //fmt.Printf( "DEBUG scanArgs : %v  ", *iface )
-        // }
-        // fmt.Printf("\n")
+        if debug["data"] {
+            for i := range scanArgs {
+                arg := scanArgs[i]
+                iface, ok := arg.(*interface{})
+                if !ok {
+                    log.Fatalf("received unexpected type as scanArg: %T (should be *interface{})", arg)
+                }
+                fmt.Printf( "DEBUG scanArgs Source : %d %T  %v  ", i, *iface, *iface )
+            }
+            fmt.Printf("\n")
+        }
 
 		// determine if the row exists in dst
 		if err = preparedStmt.QueryRow(scanArgs...).Scan(&exists); err != nil {
