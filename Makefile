@@ -15,4 +15,4 @@ container:
 	docker build -t pg2mysql:test .
 
 clean:
-	rm pg2mysql_linux
+	rm -f pg2mysql_linux pg2mysql
