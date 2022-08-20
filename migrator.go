@@ -121,7 +121,7 @@ func (m *migrator) Migrate() error {
 			err = EachMissingRow(m.src, m.dst, table, dstTable, m.debug, func(scanArgs []interface{}) {
 				err = insert(preparedStmt, scanArgs)
 				if err != nil {
-                    fmt.Fprintf(os.Stderr,  "%s\n", preparedStmt  );
+                    fmt.Fprintf(os.Stderr,  "%v\n", preparedStmt  );
 					fmt.Fprintf(os.Stderr, "failed to insert into %s: %s\n", table.ActualName, err)
 					return
 				}
