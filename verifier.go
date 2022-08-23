@@ -36,18 +36,19 @@ func (v *verifier) Verify() error {
 		return fmt.Errorf("failed to build source schema: %s", err)
 	}
 
-	for _, table := range srcSchema.Tables {
-		v.watcher.TableVerificationDidStart(table.ActualName)
+    for _, tableName := range  MakeSliceOrderedTableNames(srcSchema.Tables) {
+        srcTable := srcSchema.Tables[tableName]
+		v.watcher.TableVerificationDidStart(srcTable.ActualName)
 
-		dstTable, err := dstSchema.GetTable(table.NormalizedName)
+		dstTable, err := dstSchema.GetTable(srcTable.NormalizedName)
 		if err != nil {
             return fmt.Errorf("failed to get table from destination schema: %s", err)
         }
 
 		var missingRows int64
 		var missingIDs []string
-		err = EachMissingRow(v.src, v.dst, table, dstTable, v.debug, func(scanArgs []interface{}) {
-			if colIndex, _, getColErr := table.GetColumn(&IDColumn); getColErr == nil {
+		err = EachMissingRow(v.src, v.dst, srcTable, dstTable, v.debug, func(scanArgs []interface{}) {
+			if colIndex, _, getColErr := srcTable.GetColumn(&IDColumn); getColErr == nil {
 				if colID, ok := scanArgs[colIndex].(*interface{}); ok {
 					missingIDs = append(missingIDs, ColIDToString(*colID))
 				}
@@ -55,11 +56,11 @@ func (v *verifier) Verify() error {
 			missingRows++
 		})
 		if err != nil {
-			v.watcher.TableVerificationDidFinishWithError(table.ActualName, err)
+			v.watcher.TableVerificationDidFinishWithError(srcTable.ActualName, err)
 			continue
 		}
 
-		v.watcher.TableVerificationDidFinish(table.ActualName, missingRows, missingIDs)
+		v.watcher.TableVerificationDidFinish(srcTable.ActualName, missingRows, missingIDs)
 	}
 
 	return nil

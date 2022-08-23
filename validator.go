@@ -27,22 +27,27 @@ func (v *validator) Validate() ([]ValidationResult, error) {
 		return nil, fmt.Errorf("failed to build source schema: %s", err)
 	}
 
-    if v.debug["schema"] {
-        fmt.Printf("DEBUG SOURCE SCHEMA: %v\n", srcSchema)
-    }
-
 	dstSchema, err := BuildSchema(v.dst)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build destination schema: %s", err)
 	}
 
+    // if ok, _ := StaticSchemaAnalysis( srcSchema, dstSchema ); !ok {
+         // return nil, fmt.Errorf("failed static analysis" )
+     // }
+
     if v.debug["schema"] {
-        fmt.Printf("DEBUG DESTINATION SCHEMA: %v\n", dstSchema)
+        DumpSchema(srcSchema, dstSchema, v.src, v.dst)
     }
 
+    if v.debug["stop"] {
+        return nil, fmt.Errorf("user requested a stop operation")
+    }
 
 	var results []ValidationResult
-	for _, srcTable := range srcSchema.Tables {
+
+    for _, tableName := range  MakeSliceOrderedTableNames(srcSchema.Tables) {
+        srcTable := srcSchema.Tables[tableName]
 		dstTable, err := dstSchema.GetTable(srcTable.NormalizedName)
 		if err != nil {
             return nil, fmt.Errorf("failed to get table from destination schema: %s", err)
@@ -52,8 +57,8 @@ func (v *validator) Validate() ([]ValidationResult, error) {
                          "does not exist in the destination schema, but found", dstTable.ActualName, "instead.")
 		}
 
-		if srcTable.HasColumn(&IDColumn) {
-			rowIDs, err := GetIncompatibleRowIDs(v.src, srcTable, dstTable)
+		if srcTable.HasIDColumn(dstTable) {
+			rowIDs, err := GetIncompatibleRowIDs(v.src, srcTable, dstTable, v.debug)
 			if err != nil {
 				return nil, fmt.Errorf("failed getting incompatible row ids: %s", err)
 			}
@@ -64,7 +69,7 @@ func (v *validator) Validate() ([]ValidationResult, error) {
 				IncompatibleRowCount: int64(len(rowIDs)),
 			})
 		} else {
-			rowCount, err := GetIncompatibleRowCount(v.src, srcTable, dstTable)
+			rowCount, err := GetIncompatibleRowCount(v.src, srcTable, dstTable, v.debug)
 			if err != nil {
 				return nil, fmt.Errorf("failed getting incompatible row count: %s", err)
 			}
