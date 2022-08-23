@@ -2,18 +2,19 @@ package commands
 
 import (
 	"fmt"
+    "strings"
 
 	"pg2mysql"
 )
 
 type VerifyCommand struct{
-    Debug map[string]bool `short:"d" long:"debug" description:"Set up debug options"` 
+    Debug map[string]bool `short:"d" long:"debug" description:"Set up debug options"`
 }
 
 func (c *VerifyCommand) Execute([]string) error {
 	var dest pg2mysql.DB
 
-	if PG2MySQL.Config.Dest.Flavor == "mysql" {
+	if strings.EqualFold(PG2MySQL.Config.Dest.Flavor, "mysql") {
 		dest = pg2mysql.NewMySQLDB(
 			PG2MySQL.Config.Dest.Database,
 			PG2MySQL.Config.Dest.Username,
@@ -22,7 +23,9 @@ func (c *VerifyCommand) Execute([]string) error {
 			PG2MySQL.Config.Dest.Port,
 			PG2MySQL.Config.Dest.RoundTime,
 		)
-	} else if PG2MySQL.Config.Dest.Flavor == "psql" {
+	} else if strings.EqualFold(PG2MySQL.Config.Dest.Flavor, "psql") ||
+              strings.EqualFold(PG2MySQL.Config.Dest.Flavor, "postgres") ||
+              strings.EqualFold(PG2MySQL.Config.Dest.Flavor, "postgresql") {
 		dest = pg2mysql.NewPostgreSQLDB(
 			PG2MySQL.Config.Dest.Database,
 			PG2MySQL.Config.Dest.Username,
