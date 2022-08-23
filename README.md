@@ -28,14 +28,17 @@ Create a config:
 
 ```
 $ cat > config.yml <<EOF
-mysql:
+dest:
+  flavor:   "mysql"
   database: some-dbname
   username: some-user
   password: some-password
+  round_time: true
   host: 192.168.10.1
   port: 3306
 
-postgresql:
+source:
+  flavor:   "psql"
   database: some-dbname
   username: some-user
   password: some-password
@@ -45,8 +48,9 @@ postgresql:
 EOF
 ```
 
-_Note: See [PostgreSQL documentation](https://www.postgresql.org/docs/9.1/static/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS)_
-for valid SSL mode values.
+_Note: See [PostgreSQL documentation][usage1] for valid SSL mode values._
+
+[usage1]: <https://www.postgresql.org/docs/9.1/static/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS>
 
 Run the validator:
 
@@ -100,5 +104,22 @@ exists in MySQL.
 _Note: The verify command assumes that the precise PostgreSQL timestamps are
 truncated when doing the migration over to MySQL. However, it has been found
 that this behavior is not consistent with all forms of MySQL. Official MySQL
-rounds the timestamps whereas MariaDB truncates. A PR to intelligently support
-both would be happily received._
+rounds the timestamps whereas MariaDB truncates.
+
+## Changes
+Here are a list of changes made to this piece of derived work.
+
+1. Column names that differ in case only are assumed to be the same columns
+1. Table names that differ in case only are assumed to be the same tables
+1. Added heuristic support for conversion of Postgres' uuid to MySql 5.7 
+binary(16) representation.
+1. Improvements to make sure column ordering within the Column Array matches
+   up between the two databases.
+1. Added a debug flag to dump sql and data objects.
+1. More checking on the validate operation.  It is important to run validate before
+   the migrate to catch inconsistencies that you might need to correct first.
+
+## Author Notes
+This piece of work is based off the work from [tompiscitell/pg2mysql][an1].
+
+[an1]: <https://github.com/tompiscitell/pg2mysql>
