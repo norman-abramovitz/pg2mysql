@@ -106,6 +106,10 @@ truncated when doing the migration over to MySQL. However, it has been found
 that this behavior is not consistent with all forms of MySQL. Official MySQL
 rounds the timestamps whereas MariaDB truncates.
 
+The round_time parameter is now honored in migrate and verify operations. It
+is best to set the round_time to true since the internal go language database
+api will do unexpected datetime conversions._
+
 ## Changes
 Here are a list of changes made to this piece of derived work.
 
