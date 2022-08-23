@@ -30,6 +30,7 @@ func NewMySQLDB(
 
 	return &mySQLDB{
 		dsn:       config.FormatDSN(),
+        driver:    "mysql",
 		dbName:    database,
 		roundTime: roundTime,
 	}
@@ -37,13 +38,14 @@ func NewMySQLDB(
 
 type mySQLDB struct {
 	dsn       string
+    driver    string
 	db        *sql.DB
 	dbName    string
 	roundTime bool
 }
 
 func (m *mySQLDB) Open() error {
-	db, err := sql.Open("mysql", m.dsn)
+	db, err := sql.Open(m.driver, m.dsn)
 	if err != nil {
 		return err
 	}
@@ -55,6 +57,14 @@ func (m *mySQLDB) Open() error {
 
 func (m *mySQLDB) Close() error {
 	return m.db.Close()
+}
+
+func (m *mySQLDB) GetDriverName() string {
+    return "MySQL"
+}
+
+func (m *mySQLDB) GetDbName() string {
+    return m.dbName
 }
 
 func (m *mySQLDB) GetSchemaRows() (*sql.Rows, error) {

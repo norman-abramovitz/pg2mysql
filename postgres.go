@@ -27,18 +27,20 @@ func NewPostgreSQLDB(
 
 	return &postgreSQLDB{
 		dsn:    dsn,
+        driver: "postgres",
 		dbName: database,
 	}
 }
 
 type postgreSQLDB struct {
 	dbName string
+    driver string
 	db     *sql.DB
 	dsn    string
 }
 
 func (p *postgreSQLDB) Open() error {
-	db, err := sql.Open("postgres", p.dsn)
+	db, err := sql.Open(p.driver, p.dsn)
 	if err != nil {
 		return err
 	}
@@ -50,6 +52,14 @@ func (p *postgreSQLDB) Open() error {
 
 func (p *postgreSQLDB) Close() error {
 	return p.db.Close()
+}
+
+func (p *postgreSQLDB) GetDriverName() string {
+    return "PostgreSQL"
+}
+
+func (p *postgreSQLDB) GetDbName() string {
+    return p.dbName
 }
 
 func (p *postgreSQLDB) GetSchemaRows() (*sql.Rows, error) {
