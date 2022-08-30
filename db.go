@@ -31,9 +31,14 @@ type Schema struct {
 func DumpColumns(src, dst []*Column) {
     var srcPad, dstPad int = 45, 45
     var srcIdx, dstIdx int
+    var srcSide, dstSide string = "", ""
 
-    srcSide := fmt.Sprintf( "    Columns: %d", len(src))
-    dstSide := fmt.Sprintf( "    Columns: %d", len(dst))
+    if len(src) > 0 {
+        srcSide = fmt.Sprintf( "    Columns: %d", len(src))
+    }
+    if len(dst) > 0 {
+        dstSide = fmt.Sprintf( "    Columns: %d", len(dst))
+    }
     fmt.Printf("%-*s%-*s\n", srcPad, srcSide, dstPad, dstSide)
 
     for srcIdx < len(src)  || dstIdx < len(dst) {
@@ -205,11 +210,15 @@ type Table struct {
 	Columns []*Column
 }
 
-func (t *Table) HasIDColumn(other *Table) bool {
+func (t *Table) HasIDColumn(other *Table, debug map[string]bool) bool {
     ti, tcolumn, _ := t.GetColumn(&IDColumn)
     oi, ocolumn, _ := other.GetColumn(&IDColumn)
+
     if ti >= 0 && oi >= 0 {
-        fmt.Printf( "DEBUG %s HasIDColumn %+v %+v\n", t.NormalizedName, tcolumn, ocolumn)
+        if debug["data"] {
+            fmt.Printf( "DEBUG %s HasIDColumn %+v %+v\n", t.NormalizedName, tcolumn, ocolumn)
+        }
+        return true
     }
     return false;
 }
@@ -395,8 +404,13 @@ func StaticSchemaAnalysis( src, dst *Schema) (bool, error) {
     return true, nil
 }
 
-func GetIncompatibleColumns(src, dst *Table) ([]*Column, error) {
-	var incompatibleColumns []*Column
+type IncompatibleColumns struct {
+    src *Column
+    dst *Column
+}
+
+func GetIncompatibleColumns(src, dst *Table) ([]IncompatibleColumns, error) {
+	var incompatibleColumns []IncompatibleColumns
 	for _, dstColumn := range dst.Columns {
 		_, srcColumn, err := src.GetColumn(dstColumn)
 		if err != nil {
@@ -404,8 +418,12 @@ func GetIncompatibleColumns(src, dst *Table) ([]*Column, error) {
 		}
 
 		if dstColumn.Incompatible(srcColumn) {
-            fmt.Printf("DEBUG: srcColumn %+v dstColumn %+v\n", srcColumn, dstColumn)
-			incompatibleColumns = append(incompatibleColumns, srcColumn)
+            var columnPair = IncompatibleColumns {
+                src: srcColumn,
+                dst: dstColumn,
+            }
+            
+			incompatibleColumns = append(incompatibleColumns, columnPair)
 		}
 	}
 
@@ -422,9 +440,10 @@ func GetIncompatibleRowIDs(db DB, src, dst *Table, debug map[string]bool) ([]int
 		return nil, nil
 	}
 
+    // We want to compare the source column to the destination length
 	limits := make([]string, len(columns))
 	for i, column := range columns {
-		limits[i] = fmt.Sprintf("LENGTH(%s) > %d", column.ActualName, column.MaxChars)
+		limits[i] = fmt.Sprintf("LENGTH(%s) > %d", column.src.ActualName, column.dst.MaxChars)
 	}
 
 	stmt := fmt.Sprintf("SELECT id FROM %s WHERE %s", src.ActualName, strings.Join(limits, " OR "))
@@ -469,7 +488,7 @@ func GetIncompatibleRowCount(db DB, src, dst *Table, debug map[string]bool) (int
 
 	limits := make([]string, len(columns))
 	for i, column := range columns {
-		limits[i] = fmt.Sprintf("length(%s) > %d", column.ActualName, column.MaxChars)
+		limits[i] = fmt.Sprintf("length(%s) > %d", column.src.ActualName, column.dst.MaxChars)
 	}
 
 	stmt := fmt.Sprintf("SELECT count(1) FROM %s WHERE %s", src.ActualName, strings.Join(limits, " OR "))

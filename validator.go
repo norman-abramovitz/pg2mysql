@@ -57,7 +57,7 @@ func (v *validator) Validate() ([]ValidationResult, error) {
                          "does not exist in the destination schema, but found", dstTable.ActualName, "instead.")
 		}
 
-		if srcTable.HasIDColumn(dstTable) {
+		if srcTable.HasIDColumn(dstTable, v.debug) {
 			rowIDs, err := GetIncompatibleRowIDs(v.src, srcTable, dstTable, v.debug)
 			if err != nil {
 				return nil, fmt.Errorf("failed getting incompatible row ids: %s", err)
